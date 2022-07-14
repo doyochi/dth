@@ -1,60 +1,120 @@
 package id.hikmah.binar.digitaltalenthub.fragment
 
+import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Bundle
+import android.service.autofill.UserData
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
+import androidx.navigation.fragment.findNavController
+import id.hikmah.binar.digitaltalenthub.MainActivity
 import id.hikmah.binar.digitaltalenthub.R
+import id.hikmah.binar.digitaltalenthub.database.UserDatabase
+import id.hikmah.binar.digitaltalenthub.databinding.FragmentLoginBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
-
-/**
- * A simple [Fragment] subclass.
- * Use the [LoginFragment.newInstance] factory method to
- * create an instance of this fragment.
- */
 class LoginFragment : Fragment() {
-    // TODO: Rename and change types of parameters
-    private var param1: String? = null
-    private var param2: String? = null
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        arguments?.let {
-            param1 = it.getString(ARG_PARAM1)
-            param2 = it.getString(ARG_PARAM2)
-        }
-    }
+    private var _binding: FragmentLoginBinding? = null
+    private val binding get() = _binding!!
+
+    private var userDb: UserDatabase? = null
+    private lateinit var sharedPref: SharedPreferences
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_login, container, false)
+        _binding = FragmentLoginBinding.inflate(layoutInflater, container, false)
+        return binding.root
     }
 
-    companion object {
-        /**
-         * Use this factory method to create a new instance of
-         * this fragment using the provided parameters.
-         *
-         * @param param1 Parameter 1.
-         * @param param2 Parameter 2.
-         * @return A new instance of fragment LoginFragment.
-         */
-        // TODO: Rename and change types and number of parameters
-        @JvmStatic
-        fun newInstance(param1: String, param2: String) =
-            LoginFragment().apply {
-                arguments = Bundle().apply {
-                    putString(ARG_PARAM1, param1)
-                    putString(ARG_PARAM2, param2)
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        userDb = UserDatabase.getInstance(requireContext())
+        sharedPref = requireContext().getSharedPreferences("SHARED_PREF", Context.MODE_PRIVATE)
+
+        isLogin()
+        doLogin()
+        moveToRegister()
+    }
+
+    private fun isLogin() {
+        val loginState = sharedPref.getBoolean("LOGIN_STATE", false)
+        if (loginState) {
+            val intent = Intent(requireContext(),MainActivity::class.java)
+            startActivity(intent)
+            requireActivity().finish()
+        }
+    }
+
+    private fun moveToRegister() {
+        binding.btnToregist.setOnClickListener {
+            findNavController().navigate(R.id.action_loginFragment_to_registerFragment)
+        }
+    }
+
+    private fun doLogin() {
+        binding.btnLogin.setOnClickListener {
+            val etUsername = binding.editUsername.editableText.toString()
+            val etPassword = binding.editPassword.editableText.toString()
+            if (validateLogin(etUsername, etPassword)) {
+                moveToHome(etUsername, etPassword)
+            }
+        }
+    }
+
+    private fun validateLogin(username: String, password: String): Boolean {
+        if (username.isEmpty()) {
+            binding.editUsername.error = "Mohon isi username"
+            return false
+        }
+        if (password.isEmpty()) {
+            binding.editPassword.error = "Mohon isi password"
+            return false
+        }
+        return true
+    }
+
+    private fun moveToHome(username: String, password: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val checkLogin = userDb?.userDao()?.checkLogin(username, password)
+            val getId = userDb?.userDao()?.getId(username)
+            if (!checkLogin.isNullOrEmpty()) {
+                CoroutineScope(Dispatchers.Main).launch {
+                    val userID = getId?.id!!
+                    val editor = sharedPref.edit()
+                    editor.apply {
+                        putInt("USERID", userID)
+                        putString("USERNAME", username)
+                        putBoolean("LOGIN_STATE", true)
+                        apply()
+                    }
+                    val getUsername = sharedPref.getString("USERNAME", "Default Value")
+                    Toast.makeText(requireContext(), "Selamat datang $getUsername", Toast.LENGTH_SHORT).show()
+                    startActivity(Intent(requireContext(), MainActivity::class.java))
+                    requireActivity().finish()
                 }
             }
+
+            else {
+                CoroutineScope(Dispatchers.Main).launch {
+                    Toast.makeText(requireContext(), "Username atau Password salah", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
+
 }
