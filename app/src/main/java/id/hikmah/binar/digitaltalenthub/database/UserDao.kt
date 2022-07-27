@@ -24,7 +24,7 @@ interface UserDao {
     fun getAllJob(userId: Int): List<JobEntity>
 
     @Update
-    fun updateNote(job: JobEntity): Int
+    fun updateJob(job: JobEntity): Int
 
     @Delete
     fun deleteNote(job: JobEntity): Int
