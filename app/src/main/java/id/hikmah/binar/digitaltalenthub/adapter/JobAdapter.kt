@@ -67,6 +67,6 @@ class JobAdapter(
 }
 
 interface JobActionListener {
-    fun onDelete(note: JobEntity)
-    fun onEdit(note: JobEntity)
+    fun onDelete(job: JobEntity)
+    fun onEdit(job: JobEntity)
 }
